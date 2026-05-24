@@ -1,9 +1,17 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useBudgetStore } from '@/store/budget'
-import type { TransactionType } from '@/types'
+import { useServices } from '@/services'
+import type { TransactionType, Transaction, Category, ApiResponse } from '@/types'
 
 const budgetStore = useBudgetStore()
+const { transactions } = useServices()
+
+// Authorization State
+const isAuthorized = ref(!!localStorage.getItem('auth_token'))
+const passwordInput = ref('')
+const authError = ref('')
+const isAuthenticating = ref(false)
 
 // State for new transaction form
 const amount = ref<number | null>(null)
@@ -11,6 +19,117 @@ const type = ref<TransactionType>('expense')
 const categoryId = ref<string>('')
 const date = ref<string>(new Date().toISOString().split('T')[0])
 const description = ref<string>('')
+
+// Fallback seed mock data for standalone/offline runs
+const defaultMockCategories: Category[] = [
+  {
+    id: 'c-1',
+    name: 'Groceries',
+    icon: 'local_grocery_store',
+    color: '#ff9100',
+    type: 'expense',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'c-2',
+    name: 'Rent & Living',
+    icon: 'home',
+    color: '#2979ff',
+    type: 'expense',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'c-3',
+    name: 'Transport',
+    icon: 'directions_car',
+    color: '#00e5ff',
+    type: 'expense',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'c-4',
+    name: 'Salary',
+    icon: 'payments',
+    color: '#00e676',
+    type: 'income',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'c-5',
+    name: 'Freelance & Business',
+    icon: 'corporate_fare',
+    color: '#d500f9',
+    type: 'income',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 'c-6',
+    name: 'Leisure & Fun',
+    icon: 'sports_esports',
+    color: '#ff1744',
+    type: 'expense',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+]
+
+const defaultMockTransactions: Transaction[] = [
+  {
+    id: 't-1',
+    amount: 3200,
+    type: 'income',
+    categoryId: 'c-4',
+    date: new Date().toISOString().split('T')[0],
+    description: 'Monthly Salary Paycheck',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: 't-2',
+    amount: 1200,
+    type: 'expense',
+    categoryId: 'c-2',
+    date: new Date(Date.now() - 86400000).toISOString().split('T')[0],
+    description: 'Modern Apartment Rent',
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    updatedAt: new Date(Date.now() - 86400000).toISOString(),
+  },
+  {
+    id: 't-3',
+    amount: 154.5,
+    type: 'expense',
+    categoryId: 'c-1',
+    date: new Date(Date.now() - 172800000).toISOString().split('T')[0],
+    description: 'Weekly Organic Groceries',
+    createdAt: new Date(Date.now() - 172800000).toISOString(),
+    updatedAt: new Date(Date.now() - 172800000).toISOString(),
+  },
+  {
+    id: 't-4',
+    amount: 450,
+    type: 'income',
+    categoryId: 'c-5',
+    date: new Date(Date.now() - 259200000).toISOString().split('T')[0],
+    description: 'Consulting Project Milestone',
+    createdAt: new Date(Date.now() - 259200000).toISOString(),
+    updatedAt: new Date(Date.now() - 259200000).toISOString(),
+  },
+  {
+    id: 't-5',
+    amount: 45,
+    type: 'expense',
+    categoryId: 'c-3',
+    date: new Date(Date.now() - 345600000).toISOString().split('T')[0],
+    description: 'Premium Fuel Refill',
+    createdAt: new Date(Date.now() - 345600000).toISOString(),
+    updatedAt: new Date(Date.now() - 345600000).toISOString(),
+  },
+]
 
 // Filter categories based on transaction type
 const filteredCategories = computed(() => {
@@ -23,28 +142,150 @@ const onTypeChange = () => {
   categoryId.value = cats.length > 0 ? cats[0].id : ''
 }
 
-// Initialize category
-onTypeChange()
+// Reset credentials if unauthorized error occurs
+const handleAuthError = (err: unknown) => {
+  const isUnauthorized =
+    err instanceof Error
+      ? err.message === 'Unauthorized'
+      : typeof err === 'object' &&
+        err !== null &&
+        'message' in err &&
+        (err as { message: unknown }).message === 'Unauthorized'
+
+  if (isUnauthorized) {
+    isAuthorized.value = false
+    budgetStore.setTransactions([])
+    budgetStore.setCategories([])
+    authError.value = 'Session expired. Please log in again.'
+  }
+}
+
+// Fetch categories and transactions on mount
+const loadData = async () => {
+  if (!isAuthorized.value) return
+
+  try {
+    const [txRes, catRes] = await Promise.all([
+      transactions.getTransactions(),
+      transactions.getCategories(),
+    ])
+
+    if (txRes.success && txRes.data) {
+      budgetStore.setTransactions(txRes.data)
+    } else {
+      budgetStore.setTransactions(defaultMockTransactions)
+    }
+
+    if (catRes.success && catRes.data && catRes.data.length > 0) {
+      budgetStore.setCategories(catRes.data)
+    } else {
+      budgetStore.setCategories(defaultMockCategories)
+    }
+  } catch (err) {
+    handleAuthError(err)
+    if (isAuthorized.value) {
+      console.warn('API services offline. Falling back to local mock data.', err)
+      budgetStore.setTransactions(defaultMockTransactions)
+      budgetStore.setCategories(defaultMockCategories)
+    }
+  }
+  onTypeChange()
+}
+
+onMounted(() => {
+  loadData()
+})
+
+// Login Submission
+const handleLogin = async () => {
+  if (!passwordInput.value) return
+  isAuthenticating.value = true
+  authError.value = ''
+
+  try {
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: passwordInput.value }),
+    })
+    const result = (await response.json()) as ApiResponse<{ token: string }>
+
+    if (response.ok && result.success && result.data) {
+      localStorage.setItem('auth_token', result.data.token)
+      isAuthorized.value = true
+      passwordInput.value = ''
+      loadData()
+    } else {
+      authError.value = result.error || 'Access denied: Incorrect password.'
+    }
+  } catch {
+    authError.value = 'Network error: Cannot reach authentication gateway.'
+  } finally {
+    isAuthenticating.value = false
+  }
+}
+
+// Logout / Lock Portal
+const handleLogout = () => {
+  localStorage.removeItem('auth_token')
+  isAuthorized.value = false
+  budgetStore.setTransactions([])
+  budgetStore.setCategories([])
+  authError.value = ''
+}
 
 // Form submission
 const isSubmitting = ref(false)
-const handleSubmit = () => {
+const handleSubmit = async () => {
   if (!amount.value || amount.value <= 0 || !categoryId.value) return
 
   isSubmitting.value = true
-
-  budgetStore.addTransaction({
+  const payload = {
     amount: amount.value,
     type: type.value,
     categoryId: categoryId.value,
     date: date.value,
     description: description.value || undefined,
-  })
+  }
+
+  try {
+    const response = await transactions.createTransaction(payload)
+    const newTx: Transaction = {
+      ...payload,
+      id: response.success && response.data ? response.data.id : `t-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    budgetStore.appendTransaction(newTx)
+  } catch (err) {
+    handleAuthError(err)
+    if (isAuthorized.value) {
+      console.warn('Backend persistence failed. Saving transaction locally.', err)
+      budgetStore.appendTransaction({
+        ...payload,
+        id: `t-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+    }
+  }
 
   // Reset form
   amount.value = null
   description.value = ''
   isSubmitting.value = false
+}
+
+// Delete transaction
+const handleDelete = async (id: string) => {
+  // Optimistically remove locally
+  budgetStore.removeTransaction(id)
+
+  try {
+    await transactions.deleteTransaction(id)
+  } catch (err) {
+    handleAuthError(err)
+  }
 }
 
 // Active PWA tracking
@@ -65,7 +306,50 @@ const formatCurrency = (val: number) => {
 </script>
 
 <template>
-  <div class="dashboard-container">
+  <!-- Lockscreen Portal Overlay -->
+  <div v-if="!isAuthorized" class="login-overlay">
+    <div class="glass-panel login-card glowing-border">
+      <div class="login-header">
+        <div class="login-icon-wrapper">
+          <va-icon name="lock" color="primary" size="large" class="pulse-animation" />
+        </div>
+        <h2>Private Access Portal</h2>
+        <p>This Secure Budget Tracker requires password authorization.</p>
+      </div>
+
+      <form class="login-form" @submit.prevent="handleLogin">
+        <div class="form-group">
+          <label class="form-label">Portal Password</label>
+          <va-input
+            v-model="passwordInput"
+            type="password"
+            placeholder="••••••••••••"
+            required
+            outline
+            class="w-full"
+            :error="!!authError"
+            :error-messages="authError"
+          >
+            <template #prependInner>
+              <va-icon name="vpn_key" color="textSecondary" />
+            </template>
+          </va-input>
+        </div>
+        <va-button
+          type="submit"
+          color="primary"
+          class="w-full submit-button"
+          icon="vpn_key"
+          :loading="isAuthenticating"
+        >
+          Unlock Dashboard
+        </va-button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Primary Authorized Layout -->
+  <div v-else class="dashboard-container">
     <!-- Glassmorphic Navbar -->
     <header class="glass-panel main-header glowing-border">
       <div class="header-left">
@@ -75,11 +359,23 @@ const formatCurrency = (val: number) => {
         </div>
       </div>
       <div class="header-right">
-        <va-badge
-          :text="isOnline ? 'PWA Synchronized' : 'Offline Mode'"
-          :color="isOnline ? 'success' : 'warning'"
-          class="pwa-badge"
-        />
+        <div class="nav-actions">
+          <va-badge
+            :text="isOnline ? 'PWA Synchronized' : 'Offline Mode'"
+            :color="isOnline ? 'success' : 'warning'"
+            class="pwa-badge"
+          />
+          <va-button
+            preset="secondary"
+            icon="logout"
+            color="textSecondary"
+            size="small"
+            class="logout-btn"
+            @click="handleLogout"
+          >
+            Lock
+          </va-button>
+        </div>
       </div>
     </header>
 
@@ -189,7 +485,7 @@ const formatCurrency = (val: number) => {
                     color="danger"
                     size="small"
                     class="delete-btn"
-                    @click="budgetStore.deleteTransaction(item.id)"
+                    @click="handleDelete(item.id)"
                   />
                 </div>
               </div>
@@ -312,6 +608,68 @@ const formatCurrency = (val: number) => {
   padding: 24px 16px;
 }
 
+// Glassmorphic Login Overlay
+.login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background-color: rgb(17 18 22 / 60%);
+  background-image:
+    radial-gradient(at 0% 0%, rgb(21 78 193 / 18%) 0, transparent 60%),
+    radial-gradient(at 100% 100%, rgb(0 229 255 / 10%) 0, transparent 60%);
+  backdrop-filter: blur(28px);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 40px 32px;
+  background: rgb(27 29 35 / 75%);
+  box-shadow: 0 24px 80px rgb(0 0 0 / 50%);
+}
+
+.login-header {
+  text-align: center;
+  margin-bottom: 32px;
+
+  h2 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    margin: 16px 0 8px;
+    color: #f8f9fa;
+  }
+
+  p {
+    font-size: 0.88rem;
+    color: #a5b0c0;
+    line-height: 1.45;
+  }
+}
+
+.login-icon-wrapper {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto;
+  border-radius: 20px;
+  background: rgb(21 78 193 / 10%);
+  border: 1px solid rgb(21 78 193 / 30%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 20px rgb(21 78 193 / 20%);
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
 .main-header {
   display: flex;
   justify-content: space-between;
@@ -338,10 +696,20 @@ const formatCurrency = (val: number) => {
   text-shadow: 0 0 16px rgb(21 78 193 / 40%);
 }
 
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .pwa-badge {
   padding: 6px 12px;
   font-weight: 600;
   letter-spacing: 0.5px;
+}
+
+.logout-btn {
+  font-weight: 600;
 }
 
 .metrics-row {

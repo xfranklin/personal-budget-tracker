@@ -24,6 +24,12 @@ export default ts.config(
     },
   },
   {
-    ignores: ['**/dist/**', '**/.output/**', '**/.wrangler/**', '**/node_modules/**'],
+    ignores: [
+      '**/dist/**',
+      '**/dev-dist/**',
+      '**/.output/**',
+      '**/.wrangler/**',
+      '**/node_modules/**',
+    ],
   },
 )
