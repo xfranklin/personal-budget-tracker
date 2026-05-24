@@ -42,13 +42,18 @@
             <!-- Transaction Rows List -->
             <div class="transactions-list">
               <TransitionGroup name="list" tag="div" class="transactions-stack">
-                <TransactionRow
-                  v-for="item in loadedTransactionsWithCategory"
-                  :key="item.id"
-                  :item="item"
-                  @edit="openEditModal(item)"
-                  @delete="openDeleteModal(item)"
-                />
+                <template v-for="group in groupedTransactions" :key="group.date">
+                  <div class="date-group-header">
+                    <span>{{ formatDateHeader(group.date) }}</span>
+                  </div>
+                  <TransactionRow
+                    v-for="item in group.transactions"
+                    :key="item.id"
+                    :item="item"
+                    @edit="openEditModal(item)"
+                    @delete="openDeleteModal(item)"
+                  />
+                </template>
               </TransitionGroup>
 
               <div v-if="isLoadingRecords" class="load-state">
@@ -335,6 +340,46 @@ const loadedTransactionsWithCategory = computed(() => {
     category: budgetStore.categories.find(c => c.id === t.categoryId),
   }))
 })
+
+const groupedTransactions = computed(() => {
+  const groups: Record<string, typeof loadedTransactionsWithCategory.value> = {}
+
+  for (const tx of loadedTransactionsWithCategory.value) {
+    const dateStr = tx.date
+    if (!groups[dateStr]) {
+      groups[dateStr] = []
+    }
+    groups[dateStr].push(tx)
+  }
+
+  return Object.keys(groups)
+    .sort((a, b) => b.localeCompare(a))
+    .map(date => ({
+      date,
+      transactions: groups[date],
+    }))
+})
+
+const formatDateHeader = (dateStr: string) => {
+  const date = new Date(dateStr)
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+
+  const dateObjStr = date.toISOString().split('T')[0]
+  const todayStr = today.toISOString().split('T')[0]
+  const yesterdayStr = yesterday.toISOString().split('T')[0]
+
+  if (dateObjStr === todayStr) return 'Today'
+  if (dateObjStr === yesterdayStr) return 'Yesterday'
+
+  return new Intl.DateTimeFormat('en-US', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+    year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+  }).format(date)
+}
 
 // Net Sum for filtered period (Income - Expense)
 const totalPeriodSum = computed(() => {
@@ -669,6 +714,17 @@ const formatCurrency = (val: number) => {
   display: flex;
   flex-direction: column;
   gap: 18px;
+}
+
+.date-group-header {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-top: 8px;
+  margin-bottom: -8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding-left: 4px;
 }
 
 .load-state {
