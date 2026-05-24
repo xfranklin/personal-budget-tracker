@@ -750,4 +750,30 @@ const formatCurrency = (val: number) => {
 .animate-select {
   transition: all 0.2s ease;
 }
+
+@media (width <= 640px) {
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+  }
+
+  .section-title h2 {
+    font-size: 1.1rem;
+  }
+
+  .summary-badges {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  .badge-total {
+    font-size: 0.8rem;
+    padding: 4px 8px;
+    border-radius: 6px;
+  }
+}
 </style>

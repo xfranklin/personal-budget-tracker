@@ -24,7 +24,7 @@
         </div>
 
         <dl class="tx-meta">
-          <div class="tx-meta-item">
+          <div v-if="item.description" class="tx-meta-item">
             <dt>Category</dt>
             <dd>{{ categoryName }}</dd>
           </div>
@@ -190,7 +190,10 @@ const rowAriaLabel = computed(
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   margin: 0;
   font-size: 0.78rem;
   color: var(--text-secondary);
@@ -315,9 +318,9 @@ const rowAriaLabel = computed(
   }
 
   .tx-title-line {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 6px;
+    align-items: center;
+    flex-direction: row;
+    gap: 8px;
   }
 
   .tx-description {
@@ -326,7 +329,6 @@ const rowAriaLabel = computed(
 
   .tx-right {
     justify-content: space-between;
-    padding-left: 60px;
   }
 
   .tx-amount {
