@@ -52,6 +52,7 @@
                     :item="item"
                     @edit="openEditModal(item)"
                     @delete="openDeleteModal(item)"
+                    @mobile-click="openMobileActions(item)"
                   />
                 </template>
               </TransitionGroup>
@@ -293,6 +294,51 @@
         </div>
       </div>
     </va-modal>
+
+    <!-- Mobile Actions Bottom Sheet -->
+    <va-modal
+      v-model="showMobileActionsModal"
+      hide-default-actions
+      position="bottom"
+      class="mobile-actions-modal"
+    >
+      <div v-if="activeMobileTransaction" class="mobile-actions-container">
+        <div class="mobile-actions-header">
+          <h4>
+            {{
+              activeMobileTransaction.description ||
+              activeMobileTransaction.category?.name ||
+              'Transaction'
+            }}
+          </h4>
+          <va-button
+            preset="plain"
+            icon="close"
+            color="textSecondary"
+            size="small"
+            @click="showMobileActionsModal = false"
+          />
+        </div>
+        <va-button
+          preset="plain"
+          icon="edit"
+          color="primary"
+          class="mobile-action-btn"
+          @click="handleMobileEdit"
+        >
+          Edit Transaction
+        </va-button>
+        <va-button
+          preset="plain"
+          icon="delete"
+          color="danger"
+          class="mobile-action-btn"
+          @click="handleMobileDelete"
+        >
+          Delete Transaction
+        </va-button>
+      </div>
+    </va-modal>
   </AppLayout>
 </template>
 
@@ -443,6 +489,28 @@ const transactionDeleteTitle = computed(() => {
 const openDeleteModal = (item: Transaction & { category?: Category }) => {
   transactionToDelete.value = item
   showDeleteModal.value = true
+}
+
+const showMobileActionsModal = ref(false)
+const activeMobileTransaction = ref<(Transaction & { category?: Category }) | null>(null)
+
+const openMobileActions = (item: Transaction & { category?: Category }) => {
+  activeMobileTransaction.value = item
+  showMobileActionsModal.value = true
+}
+
+const handleMobileEdit = () => {
+  if (activeMobileTransaction.value) {
+    openEditModal(activeMobileTransaction.value)
+  }
+  showMobileActionsModal.value = false
+}
+
+const handleMobileDelete = () => {
+  if (activeMobileTransaction.value) {
+    openDeleteModal(activeMobileTransaction.value)
+  }
+  showMobileActionsModal.value = false
 }
 
 const closeDeleteModal = () => {
@@ -713,15 +781,14 @@ const formatCurrency = (val: number) => {
 .transactions-stack {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 6px;
 }
 
 .date-group-header {
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--text-secondary);
-  margin-top: 8px;
-  margin-bottom: -8px;
+  margin-top: 10px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   padding-left: 4px;
@@ -740,6 +807,35 @@ const formatCurrency = (val: number) => {
 .load-more-button {
   align-self: center;
   margin: 18px auto 4px;
+}
+
+.mobile-actions-container {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  gap: 8px;
+  min-width: 250px;
+}
+
+.mobile-actions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--glass-border);
+  padding-bottom: 12px;
+  margin-bottom: 4px;
+
+  h4 {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+  }
+}
+
+.mobile-action-btn {
+  justify-content: flex-start;
+  padding: 12px 16px;
+  font-size: 1rem;
 }
 
 .empty-state {
@@ -905,6 +1001,14 @@ const formatCurrency = (val: number) => {
 }
 
 @media (width <= 640px) {
+  .records-container {
+    padding: 16px 8px;
+  }
+
+  .section-card {
+    padding: 16px 12px;
+  }
+
   .section-header {
     flex-direction: column;
     align-items: flex-start;

@@ -3,6 +3,7 @@
     class="transaction-row"
     :class="`transaction-row--${item.type}`"
     :aria-label="rowAriaLabel"
+    @click="handleRowClick"
   >
     <div class="tx-left">
       <div
@@ -74,10 +75,17 @@ const props = defineProps<{
   item: Transaction & { category?: Category }
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'edit'): void
   (e: 'delete'): void
+  (e: 'mobileClick'): void
 }>()
+
+const handleRowClick = () => {
+  if (window.innerWidth <= 640) {
+    emit('mobileClick')
+  }
+}
 
 const formatCurrency = (val: number) => {
   return new Intl.NumberFormat('en-US', {
@@ -258,6 +266,7 @@ const rowAriaLabel = computed(
   justify-content: flex-end;
   gap: 16px;
   flex: 0 0 auto;
+  margin-left: auto;
 }
 
 .tx-amount {
@@ -302,38 +311,59 @@ const rowAriaLabel = computed(
 
 @media (width <= 640px) {
   .transaction-row {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 14px;
-    padding: 14px;
+    align-items: center;
+    flex-direction: row;
+    gap: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
   }
 
-  .tx-left,
-  .tx-right {
-    width: 100%;
+  .tx-badge-type,
+  .tx-actions {
+    display: none;
   }
 
   .tx-left {
-    align-items: flex-start;
-  }
-
-  .tx-title-line {
-    align-items: center;
-    flex-direction: row;
-    gap: 8px;
-  }
-
-  .tx-description {
-    white-space: normal;
+    width: auto;
+    flex: 1 1 0;
+    min-width: 0;
   }
 
   .tx-right {
-    justify-content: space-between;
+    width: auto;
+    flex: 0 0 auto;
+    justify-content: flex-end;
+  }
+
+  .tx-title-line {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .tx-description {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tx-meta {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .tx-meta-item {
+    min-width: 0;
+  }
+
+  .tx-meta-item dd {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .tx-amount {
     min-width: auto;
-    text-align: left;
+    text-align: right;
   }
 }
 </style>
