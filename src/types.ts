@@ -6,6 +6,8 @@ export interface Category {
   icon: string // icon name/class from Vuestic/Material icons
   color: string // hex color code
   type: TransactionType
+  group_name: string // logical category group
+  is_default?: number // 1 if system default, 0 if custom
   createdAt: string
   updatedAt: string
 }

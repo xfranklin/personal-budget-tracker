@@ -5,6 +5,8 @@ export const useBudgetStore = defineStore('budget', {
   state: () => ({
     transactions: [] as Transaction[],
     categories: [] as Category[],
+    theme: (localStorage.getItem('theme') || 'light') as 'light' | 'dark',
+    showAddTransactionModal: false,
   }),
 
   getters: {
@@ -44,8 +46,32 @@ export const useBudgetStore = defineStore('budget', {
     removeTransaction(id: string) {
       this.transactions = this.transactions.filter(t => t.id !== id)
     },
+    updateTransaction(updatedTx: Transaction) {
+      const idx = this.transactions.findIndex(t => t.id === updatedTx.id)
+      if (idx !== -1) {
+        this.transactions[idx] = updatedTx
+      }
+    },
     appendCategory(category: Category) {
       this.categories.push(category)
+    },
+    updateCategory(updatedCat: Category) {
+      const idx = this.categories.findIndex(c => c.id === updatedCat.id)
+      if (idx !== -1) {
+        this.categories[idx] = updatedCat
+      }
+    },
+    removeCategory(id: string) {
+      this.categories = this.categories.filter(c => c.id !== id)
+    },
+    setTheme(theme: 'light' | 'dark') {
+      this.theme = theme
+      localStorage.setItem('theme', theme)
+      document.documentElement.setAttribute('data-theme', theme)
+    },
+    toggleTheme() {
+      const nextTheme = this.theme === 'light' ? 'dark' : 'light'
+      this.setTheme(nextTheme)
     },
   },
 })

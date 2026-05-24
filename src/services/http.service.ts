@@ -1,3 +1,5 @@
+import router from '@/router'
+
 export default class HttpService {
   protected baseUrl: string
 
@@ -47,6 +49,7 @@ export default class HttpService {
       // Catch session expiration or bad credentials
       if (response.status === 401) {
         localStorage.removeItem('auth_token')
+        router.push({ name: 'login' })
         throw new Error('Unauthorized')
       }
 
