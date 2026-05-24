@@ -128,7 +128,16 @@ const emit = defineEmits<{
 
 type PickerTab = 'custom' | 'months' | 'years' | 'all'
 
-const currentTab = ref<PickerTab>('months')
+const props = withDefaults(
+  defineProps<{
+    defaultTab?: PickerTab
+  }>(),
+  {
+    defaultTab: 'months',
+  },
+)
+
+const currentTab = ref<PickerTab>(props.defaultTab)
 const isDropdownOpen = ref(false)
 const selectedYear = ref(new Date().getFullYear())
 const selectedMonth = ref(new Date().getMonth())

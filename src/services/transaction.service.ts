@@ -42,6 +42,12 @@ export class TransactionService {
     return this.http.delete<ApiResponse>(`/transactions/${id}`)
   }
 
+  async deleteTransactionsByPeriod(startDate: string, endDate: string): Promise<ApiResponse> {
+    return this.http.delete<ApiResponse>(
+      `/transactions/bulk?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`,
+    )
+  }
+
   async updateTransaction(
     id: string,
     payload: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>,

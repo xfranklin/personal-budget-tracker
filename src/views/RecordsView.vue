@@ -4,7 +4,7 @@
       <!-- Date Period Picker at the Top -->
       <div class="row header-row">
         <div class="flex xs12">
-          <DatePeriodPicker @change="onPeriodChange" />
+          <DatePeriodPicker default-tab="years" @change="onPeriodChange" />
         </div>
       </div>
 
@@ -16,6 +16,17 @@
               <div class="section-title">
                 <va-icon name="receipt_long" size="medium" />
                 <h2>Records ({{ loadedTransactions.length }} / {{ periodSummary.totalCount }})</h2>
+                <va-button
+                  v-if="periodSummary.totalCount > 0"
+                  preset="secondary"
+                  icon="delete"
+                  color="danger"
+                  size="small"
+                  class="ml-auto"
+                  @click="showDeleteAllModal = true"
+                >
+                  Delete All
+                </va-button>
               </div>
               <div class="summary-badges">
                 <span class="badge-total badge-total-expense">
@@ -219,6 +230,59 @@
               @click="handleDeleteSubmit"
             >
               Delete
+            </va-button>
+          </div>
+        </div>
+      </div>
+    </va-modal>
+
+    <!-- Delete All Confirmation Modal -->
+    <va-modal
+      v-model="showDeleteAllModal"
+      hide-default-actions
+      no-outside-dismiss
+      z-index="9999"
+      attach-element="body"
+      class="delete-confirm-modal"
+    >
+      <div class="modal-form-container">
+        <div class="modal-form-header">
+          <div class="modal-form-title">
+            <va-icon name="warning" size="medium" color="danger" />
+            <h3>Delete All Records</h3>
+          </div>
+          <va-button
+            preset="plain"
+            icon="close"
+            color="textSecondary"
+            size="medium"
+            :disabled="isDeletingAll"
+            @click="showDeleteAllModal = false"
+          />
+        </div>
+
+        <div class="delete-content">
+          <p>
+            Are you sure you want to delete <strong>all records</strong> in this period? This action
+            will permanently delete <strong>{{ periodSummary.totalCount }}</strong> records and
+            cannot be undone.
+          </p>
+
+          <div class="delete-actions">
+            <va-button
+              preset="secondary"
+              :disabled="isDeletingAll"
+              @click="showDeleteAllModal = false"
+            >
+              Cancel
+            </va-button>
+            <va-button
+              color="danger"
+              icon="delete_sweep"
+              :loading="isDeletingAll"
+              @click="handleDeleteAllSubmit"
+            >
+              Delete All
             </va-button>
           </div>
         </div>
@@ -473,6 +537,39 @@ const handleDeleteSubmit = async () => {
     console.error('Failed to delete transaction:', err)
   } finally {
     isDeleting.value = false
+  }
+}
+
+// Delete all transactions in period
+const showDeleteAllModal = ref(false)
+const isDeletingAll = ref(false)
+
+const handleDeleteAllSubmit = async () => {
+  if (periodSummary.value.totalCount === 0) return
+
+  isDeletingAll.value = true
+  try {
+    let start = currentPeriod.value.startDate
+    let end = currentPeriod.value.endDate
+
+    // If 'All time' is selected, use a massive date range
+    if (!start || !end) {
+      start = '1970-01-01'
+      end = '2100-12-31'
+    }
+
+    const response = await transactions.deleteTransactionsByPeriod(start, end)
+
+    if (!response.success) {
+      console.error('Failed to delete bulk transactions:', response.error)
+    }
+
+    showDeleteAllModal.value = false
+    await resetAndLoadTransactions()
+  } catch (err) {
+    console.error('Failed to delete all transactions:', err)
+  } finally {
+    isDeletingAll.value = false
   }
 }
 

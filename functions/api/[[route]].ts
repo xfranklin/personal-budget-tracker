@@ -398,6 +398,29 @@ app.put('/transactions/:id', async c => {
   }
 })
 
+// Delete bulk transactions by period (Protected)
+app.delete('/transactions/bulk', async c => {
+  try {
+    const startDate = c.req.query('startDate')
+    const endDate = c.req.query('endDate')
+
+    if (!startDate || !endDate) {
+      return c.json<ApiResponse>(
+        { success: false, error: 'startDate and endDate are required for bulk deletion.' },
+        400,
+      )
+    }
+
+    await c.env.DB.prepare('DELETE FROM transactions WHERE date >= ? AND date <= ?')
+      .bind(startDate, endDate)
+      .run()
+
+    return c.json<ApiResponse>({ success: true })
+  } catch (err) {
+    return c.json<ApiResponse>({ success: false, error: getErrorMessage(err) }, 500)
+  }
+})
+
 // Delete transaction (Protected)
 app.delete('/transactions/:id', async c => {
   try {
