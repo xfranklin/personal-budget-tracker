@@ -389,7 +389,7 @@ onMounted(() => {
   background: var(--bg-primary);
   transition: all 0.2s ease;
   min-width: 160px;
-  max-width: 280px;
+  max-width: 240px;
   width: 100%;
   justify-content: center;
   overflow: hidden;

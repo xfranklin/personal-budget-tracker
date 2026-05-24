@@ -70,8 +70,9 @@
 
     <!-- ===================== BOTTOM BAR (< 1024px) ===================== -->
     <nav v-if="!isSidebarVisible" class="bottom-bar glass-panel">
+      <!-- First 3 nav items -->
       <a
-        v-for="item in navItems"
+        v-for="item in navItems.slice(0, 3)"
         :key="item.label"
         class="bottom-bar-item"
         :class="{ active: item.active }"
@@ -93,15 +94,41 @@
         <span>Add</span>
       </button>
 
-      <button class="bottom-bar-item" @click="toggleTheme">
-        <va-icon :name="theme === 'light' ? 'dark_mode' : 'light_mode'" size="small" />
-        <span>{{ theme === 'light' ? 'Dark' : 'Light' }}</span>
-      </button>
+      <!-- More Dropdown -->
+      <va-dropdown placement="top-end" :offset="[0, 16]" class="mobile-more-dropdown">
+        <template #anchor>
+          <button class="bottom-bar-item">
+            <va-icon name="more_horiz" size="small" />
+            <span>More</span>
+          </button>
+        </template>
 
-      <button class="bottom-bar-item danger" @click="handleLogout">
-        <va-icon name="logout" size="small" />
-        <span>Lock</span>
-      </button>
+        <div class="mobile-more-menu glass-panel">
+          <a
+            v-for="item in navItems.slice(3)"
+            :key="item.label"
+            class="mobile-more-item"
+            :class="{ active: item.active }"
+            href="#"
+            @click.prevent="item.action"
+          >
+            <va-icon :name="item.icon" size="small" />
+            <span>{{ item.label }}</span>
+          </a>
+
+          <div class="mobile-more-divider" />
+
+          <button class="mobile-more-item" @click="toggleTheme">
+            <va-icon :name="theme === 'light' ? 'dark_mode' : 'light_mode'" size="small" />
+            <span>{{ theme === 'light' ? 'Dark Mode' : 'Light Mode' }}</span>
+          </button>
+
+          <button class="mobile-more-item danger" @click="handleLogout">
+            <va-icon name="logout" size="small" />
+            <span>Lock</span>
+          </button>
+        </div>
+      </va-dropdown>
     </nav>
   </div>
 
@@ -619,6 +646,60 @@ const handleSubmit = async () => {
     box-shadow: 0 4px 10px rgb(21 78 193 / 30%);
     margin-bottom: -1px;
   }
+}
+
+.mobile-more-dropdown {
+  display: flex;
+}
+
+.mobile-more-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  padding: 8px 0;
+  border-radius: 12px;
+  background: var(--bg-primary);
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 4px 20px rgb(0 0 0 / 10%);
+}
+
+.mobile-more-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    color 0.2s;
+
+  &:hover,
+  &.active {
+    background: rgb(21 78 193 / 5%);
+    color: var(--primary);
+  }
+
+  &.danger {
+    color: #ef4444;
+
+    &:hover {
+      background: rgb(239 68 68 / 5%);
+    }
+  }
+}
+
+.mobile-more-divider {
+  height: 1px;
+  background: var(--glass-border);
+  margin: 4px 0;
 }
 
 /* ─── Global modal form styles ────────────────────────────────── */
