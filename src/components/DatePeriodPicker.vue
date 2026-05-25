@@ -123,7 +123,10 @@
 import { ref, computed, onMounted } from 'vue'
 
 const emit = defineEmits<{
-  (e: 'change', payload: { startDate: string | null; endDate: string | null; label: string }): void
+  (
+    e: 'change',
+    payload: { startDate: string | null; endDate: string | null; label: string; tab: string },
+  ): void
 }>()
 
 type PickerTab = 'custom' | 'months' | 'years' | 'all'
@@ -240,6 +243,7 @@ const applyCustomRange = (close = false) => {
     startDate: customStart.value,
     endDate: customEnd.value,
     label: `${customStart.value} - ${customEnd.value}`,
+    tab: 'custom',
   })
   if (close) {
     isDropdownOpen.value = false
@@ -252,6 +256,7 @@ const applyAllPeriod = (close = false) => {
     startDate: null,
     endDate: null,
     label: 'All time records',
+    tab: 'all',
   })
   if (close) {
     isDropdownOpen.value = false
@@ -267,6 +272,7 @@ const triggerPeriodChange = () => {
       startDate: formatDate(start),
       endDate: formatDate(end),
       label: displayLabel.value,
+      tab: 'months',
     })
   } else if (currentTab.value === 'years') {
     const start = new Date(selectedYear.value, 0, 1)
@@ -275,6 +281,7 @@ const triggerPeriodChange = () => {
       startDate: formatDate(start),
       endDate: formatDate(end),
       label: displayLabel.value,
+      tab: 'years',
     })
   }
 }
