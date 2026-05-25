@@ -28,3 +28,20 @@ export interface ApiResponse<T = unknown> {
   data?: T
   error?: string
 }
+
+export interface DashboardSummary {
+  totals: {
+    income: number
+    expense: number
+    net: number
+  }
+  categoryTotals: Array<{
+    categoryId: string
+    type: 'income' | 'expense'
+    amount: number
+  }>
+  timeline: Array<{
+    date: string
+    net: number
+  }>
+}

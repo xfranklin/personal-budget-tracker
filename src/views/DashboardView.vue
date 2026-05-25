@@ -12,7 +12,7 @@
         </div>
       </template>
 
-      <template v-else-if="currentPeriodData.length === 0">
+      <template v-else-if="!currentSummary || currentSummary.categoryTotals.length === 0">
         <div class="empty-state">
           <va-icon name="analytics" size="large" color="textSecondary" />
           <h3>No Data</h3>
@@ -199,7 +199,7 @@ import AppLayout from '@/components/AppLayout.vue'
 import DatePeriodPicker from '@/components/DatePeriodPicker.vue'
 import { useServices } from '@/services'
 import { useBudgetStore } from '@/store/budget'
-import type { Transaction } from '@/types'
+import type { DashboardSummary } from '@/types'
 
 import {
   Chart as ChartJS,
@@ -231,8 +231,8 @@ const { transactions: api } = useServices()
 const budgetStore = useBudgetStore()
 
 const isLoading = ref(true)
-const currentPeriodData = ref<Transaction[]>([])
-const previousPeriodData = ref<Transaction[]>([])
+const currentSummary = ref<DashboardSummary | null>(null)
+const previousSummary = ref<DashboardSummary | null>(null)
 const currentPeriodTab = ref<string>('months')
 
 const activeGroupTab = ref<'income' | 'expense'>('expense')
@@ -258,13 +258,13 @@ const onPeriodChange = async (payload: {
 
   if (!startDate || !endDate || tab === 'all') {
     // If all time, fetch everything and there is no previous period
-    const res = await api.getTransactionsPage({ limit: 10000, offset: 0 })
+    const res = await api.getDashboardSummary({ groupBy: 'month' })
     if (res.success && res.data) {
-      currentPeriodData.value = res.data.items
+      currentSummary.value = res.data
     } else {
-      currentPeriodData.value = []
+      currentSummary.value = null
     }
-    previousPeriodData.value = []
+    previousSummary.value = null
     isLoading.value = false
     return
   }
@@ -290,23 +290,22 @@ const onPeriodChange = async (payload: {
   }
 
   // Fetch both periods
+  const groupBy = tab === 'years' ? 'month' : 'day'
   const [curRes, prevRes] = await Promise.all([
-    api.getTransactionsPage({
+    api.getDashboardSummary({
       startDate: curStart.toISOString().split('T')[0],
       endDate: curEnd.toISOString().split('T')[0],
-      limit: 10000,
-      offset: 0,
+      groupBy,
     }),
-    api.getTransactionsPage({
+    api.getDashboardSummary({
       startDate: prevStart.toISOString().split('T')[0],
       endDate: prevEnd.toISOString().split('T')[0],
-      limit: 10000,
-      offset: 0,
+      groupBy,
     }),
   ])
 
-  currentPeriodData.value = curRes.success && curRes.data ? curRes.data.items : []
-  previousPeriodData.value = prevRes.success && prevRes.data ? prevRes.data.items : []
+  currentSummary.value = curRes.success && curRes.data ? curRes.data : null
+  previousSummary.value = prevRes.success && prevRes.data ? prevRes.data : null
 
   isLoading.value = false
 }
@@ -340,29 +339,21 @@ const getTrendClass = (val: number | null, invertColors = false) => {
 
 // Metrics Computation
 const metrics = computed(() => {
-  const sumType = (data: Transaction[], type: 'income' | 'expense') =>
-    data.filter(t => t.type === type).reduce((acc, t) => acc + t.amount, 0)
+  const cur = currentSummary.value?.totals || { income: 0, expense: 0, net: 0 }
+  const prev = previousSummary.value?.totals || { income: 0, expense: 0, net: 0 }
 
-  const curInc = sumType(currentPeriodData.value, 'income')
-  const curExp = sumType(currentPeriodData.value, 'expense')
-  const curNet = curInc - curExp
-
-  const prevInc = sumType(previousPeriodData.value, 'income')
-  const prevExp = sumType(previousPeriodData.value, 'expense')
-  const prevNet = prevInc - prevExp
-
-  const calcTrend = (cur: number, prev: number) => {
-    if (prev === 0) return cur > 0 ? 100 : 0
-    return ((cur - prev) / Math.abs(prev)) * 100
+  const calcTrend = (curVal: number, prevVal: number) => {
+    if (prevVal === 0) return curVal > 0 ? 100 : 0
+    return ((curVal - prevVal) / Math.abs(prevVal)) * 100
   }
 
   return {
-    income: curInc,
-    expense: curExp,
-    net: curNet,
-    incomeTrend: previousPeriodData.value.length ? calcTrend(curInc, prevInc) : null,
-    expenseTrend: previousPeriodData.value.length ? calcTrend(curExp, prevExp) : null,
-    netTrend: previousPeriodData.value.length ? calcTrend(curNet, prevNet) : null,
+    income: cur.income,
+    expense: cur.expense,
+    net: cur.net,
+    incomeTrend: previousSummary.value ? calcTrend(cur.income, prev.income) : null,
+    expenseTrend: previousSummary.value ? calcTrend(cur.expense, prev.expense) : null,
+    netTrend: previousSummary.value ? calcTrend(cur.net, prev.net) : null,
   }
 })
 
@@ -392,29 +383,20 @@ const formatGroupName = (name: string) => {
 
 // Top 5 Expenses
 const topExpenses = computed(() => {
-  const expenses = currentPeriodData.value.filter(t => t.type === 'expense')
-  if (!expenses.length) return []
+  if (!currentSummary.value) return []
 
-  const byCat = expenses.reduce(
-    (acc, t) => {
-      acc[t.categoryId] = (acc[t.categoryId] || 0) + t.amount
-      return acc
-    },
-    {} as Record<string, number>,
-  )
+  const expenses = currentSummary.value.categoryTotals.filter(t => t.type === 'expense')
 
-  const sorted = Object.entries(byCat)
-    .sort(([, amountA], [, amountB]) => amountB - amountA)
-    .slice(0, 5)
+  const sorted = [...expenses].sort((a, b) => b.amount - a.amount).slice(0, 5)
 
-  return sorted.map(([id, amount]) => {
-    const cat = budgetStore.categories.find(c => c.id === id)
+  return sorted.map(item => {
+    const cat = budgetStore.categories.find(c => c.id === item.categoryId)
     return {
-      id,
+      id: item.categoryId,
       name: cat ? cat.name : 'Unknown',
       icon: cat ? cat.icon : 'category',
       color: cat ? cat.color : '#a5b0c0',
-      amount,
+      amount: item.amount,
     }
   })
 })
@@ -438,10 +420,14 @@ interface GroupSum {
 }
 
 const groupedTransactionsList = computed(() => {
+  if (!currentSummary.value) return []
+
   const groupsMap = new Map<string, { total: number; categoriesMap: Map<string, CategorySum> }>()
 
   // Filter by active tab
-  const filteredData = currentPeriodData.value.filter(t => t.type === activeGroupTab.value)
+  const filteredData = currentSummary.value.categoryTotals.filter(
+    t => t.type === activeGroupTab.value,
+  )
 
   for (const t of filteredData) {
     const cat = budgetStore.categories.find(c => c.id === t.categoryId)
@@ -456,17 +442,13 @@ const groupedTransactionsList = computed(() => {
     const gState = groupsMap.get(gName)!
     gState.total += t.amount
 
-    if (!gState.categoriesMap.has(cat.id)) {
-      gState.categoriesMap.set(cat.id, {
-        id: cat.id,
-        name: cat.name,
-        icon: cat.icon,
-        color: cat.color,
-        amount: 0,
-      })
-    }
-    const catState = gState.categoriesMap.get(cat.id)!
-    catState.amount += t.amount
+    gState.categoriesMap.set(cat.id, {
+      id: cat.id,
+      name: cat.name,
+      icon: cat.icon,
+      color: cat.color,
+      amount: t.amount,
+    })
   }
 
   const result: GroupSum[] = []
@@ -491,23 +473,18 @@ const groupedTransactionsList = computed(() => {
 
 // Donut Chart
 const donutChartData = computed(() => {
-  const expenses = currentPeriodData.value.filter(t => t.type === 'expense')
-  const byCat = expenses.reduce(
-    (acc, t) => {
-      acc[t.categoryId] = (acc[t.categoryId] || 0) + t.amount
-      return acc
-    },
-    {} as Record<string, number>,
-  )
+  if (!currentSummary.value) return null
+
+  const expenses = currentSummary.value.categoryTotals.filter(t => t.type === 'expense')
 
   const labels: string[] = []
   const data: number[] = []
   const colors: string[] = []
 
-  for (const [id, amount] of Object.entries(byCat)) {
-    const cat = budgetStore.categories.find(c => c.id === id)
+  for (const t of expenses) {
+    const cat = budgetStore.categories.find(c => c.id === t.categoryId)
     labels.push(cat ? cat.name : 'Unknown')
-    data.push(amount)
+    data.push(t.amount)
     colors.push(cat?.color || '#a5b0c0')
   }
 
@@ -536,38 +513,25 @@ const donutOptions = {
 
 // Line Chart (Cumulative Net Balance)
 const lineChartData = computed(() => {
-  if (!currentPeriodData.value.length) return null
+  if (!currentSummary.value || !currentSummary.value.timeline.length) return null
 
-  // Sort by date ascending
-  const sorted = [...currentPeriodData.value].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-  )
+  const timeline = currentSummary.value.timeline
 
-  // Group by day or month based on tab
   const groupByMonth = currentPeriodTab.value === 'years' || currentPeriodTab.value === 'all'
-  const groupedNet: Record<string, number> = {}
-
-  for (const t of sorted) {
-    const net = t.type === 'income' ? t.amount : -t.amount
-    const key = groupByMonth ? t.date.substring(0, 7) : t.date // "YYYY-MM" or "YYYY-MM-DD"
-    groupedNet[key] = (groupedNet[key] || 0) + net
-  }
-
-  const keys = Object.keys(groupedNet)
   let cumulative = 0
-  const data = keys.map(k => {
-    cumulative += groupedNet[k]
+  const data = timeline.map(t => {
+    cumulative += t.net
     return cumulative
   })
 
   // Format labels nicely
-  const labels = keys.map(k => {
+  const labels = timeline.map(t => {
     if (groupByMonth) {
-      const [y, m] = k.split('-')
+      const [y, m] = t.date.split('-')
       const date = new Date(Number(y), Number(m) - 1, 1)
       return `${date.toLocaleString('default', { month: 'short' })} ${y}`
     } else {
-      const date = new Date(k)
+      const date = new Date(t.date)
       return `${date.getDate()} ${date.toLocaleString('default', { month: 'short' })}`
     }
   })

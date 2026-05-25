@@ -1,5 +1,5 @@
 import HttpService from './http.service'
-import type { ApiResponse, Transaction, Category } from '@/types'
+import type { ApiResponse, Transaction, Category, DashboardSummary } from '@/types'
 
 export interface TransactionsPageParams {
   startDate?: string | null
@@ -30,6 +30,14 @@ export class TransactionService {
     params: TransactionsPageParams,
   ): Promise<ApiResponse<TransactionsPage>> {
     return this.http.get<ApiResponse<TransactionsPage>>('/transactions', { body: params })
+  }
+
+  async getDashboardSummary(params: {
+    startDate?: string | null
+    endDate?: string | null
+    groupBy?: 'day' | 'month'
+  }): Promise<ApiResponse<DashboardSummary>> {
+    return this.http.get<ApiResponse<DashboardSummary>>('/transactions/dashboard', { body: params })
   }
 
   async createTransaction(

@@ -73,6 +73,86 @@ app.use('*', async (c, next) => {
   }
 })
 
+// Fetch Dashboard Aggregation (Protected)
+app.get('/transactions/dashboard', async c => {
+  try {
+    const startDate = c.req.query('startDate')
+    const endDate = c.req.query('endDate')
+    const groupBy = c.req.query('groupBy') || 'day'
+
+    const whereParts: string[] = []
+    const bindings: Array<number | string> = []
+
+    if (startDate && endDate) {
+      whereParts.push('date >= ? AND date <= ?')
+      bindings.push(startDate, endDate)
+    }
+
+    const whereClause = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : ''
+
+    // 1. Totals Query
+    const totals = await c.env.DB.prepare(
+      `
+        SELECT
+          COALESCE(SUM(CASE WHEN type = 'income' THEN amount ELSE 0 END), 0) AS income,
+          COALESCE(SUM(CASE WHEN type = 'expense' THEN amount ELSE 0 END), 0) AS expense
+        FROM transactions
+        ${whereClause}
+      `,
+    )
+      .bind(...bindings)
+      .first<{ income: number; expense: number }>()
+
+    const net = (totals?.income || 0) - (totals?.expense || 0)
+
+    // 2. Category Totals Query
+    const { results: categoryTotals } = await c.env.DB.prepare(
+      `
+        SELECT
+          category_id AS categoryId,
+          type,
+          SUM(amount) AS amount
+        FROM transactions
+        ${whereClause}
+        GROUP BY category_id, type
+      `,
+    )
+      .bind(...bindings)
+      .all<{ categoryId: string; type: 'income' | 'expense'; amount: number }>()
+
+    // 3. Timeline Query
+    const dateExpr = groupBy === 'month' ? 'substr(date, 1, 7)' : 'date'
+    const { results: timeline } = await c.env.DB.prepare(
+      `
+        SELECT
+          ${dateExpr} AS date,
+          SUM(CASE WHEN type = 'income' THEN amount ELSE -amount END) AS net
+        FROM transactions
+        ${whereClause}
+        GROUP BY ${dateExpr}
+        ORDER BY ${dateExpr} ASC
+      `,
+    )
+      .bind(...bindings)
+      .all<{ date: string; net: number }>()
+
+    return c.json<ApiResponse>({
+      success: true,
+      data: {
+        totals: {
+          income: totals?.income || 0,
+          expense: totals?.expense || 0,
+          net,
+        },
+        categoryTotals,
+        timeline,
+      },
+    })
+  } catch (err) {
+    return c.json<ApiResponse>({ success: false, error: getErrorMessage(err) }, 500)
+  }
+})
+
 // Fetch all transactions (Protected)
 app.get('/transactions', async c => {
   try {
