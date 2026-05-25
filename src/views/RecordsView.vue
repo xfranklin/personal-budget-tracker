@@ -52,7 +52,7 @@
                     :item="item"
                     @edit="openEditModal(item)"
                     @delete="openDeleteModal(item)"
-                    @mobile-click="openMobileActions(item)"
+                    @mobile-click="openEditModal(item)"
                   />
                 </template>
               </TransitionGroup>
@@ -187,6 +187,18 @@
           >
             Save Changes
           </va-button>
+
+          <!-- Delete Button directly in Edit Modal -->
+          <va-button
+            type="button"
+            preset="secondary"
+            color="danger"
+            class="w-full"
+            icon="delete"
+            @click="openDeleteModalFromEdit"
+          >
+            Delete Entry
+          </va-button>
         </form>
       </div>
     </va-modal>
@@ -292,51 +304,6 @@
             </va-button>
           </div>
         </div>
-      </div>
-    </va-modal>
-
-    <!-- Mobile Actions Bottom Sheet -->
-    <va-modal
-      v-model="showMobileActionsModal"
-      hide-default-actions
-      position="bottom"
-      class="mobile-actions-modal"
-    >
-      <div v-if="activeMobileTransaction" class="mobile-actions-container">
-        <div class="mobile-actions-header">
-          <h4>
-            {{
-              activeMobileTransaction.description ||
-              activeMobileTransaction.category?.name ||
-              'Transaction'
-            }}
-          </h4>
-          <va-button
-            preset="plain"
-            icon="close"
-            color="textSecondary"
-            size="small"
-            @click="showMobileActionsModal = false"
-          />
-        </div>
-        <va-button
-          preset="plain"
-          icon="edit"
-          color="primary"
-          class="mobile-action-btn"
-          @click="handleMobileEdit"
-        >
-          Edit Transaction
-        </va-button>
-        <va-button
-          preset="plain"
-          icon="delete"
-          color="danger"
-          class="mobile-action-btn"
-          @click="handleMobileDelete"
-        >
-          Delete Transaction
-        </va-button>
       </div>
     </va-modal>
   </AppLayout>
@@ -491,26 +458,14 @@ const openDeleteModal = (item: Transaction & { category?: Category }) => {
   showDeleteModal.value = true
 }
 
-const showMobileActionsModal = ref(false)
-const activeMobileTransaction = ref<(Transaction & { category?: Category }) | null>(null)
-
-const openMobileActions = (item: Transaction & { category?: Category }) => {
-  activeMobileTransaction.value = item
-  showMobileActionsModal.value = true
-}
-
-const handleMobileEdit = () => {
-  if (activeMobileTransaction.value) {
-    openEditModal(activeMobileTransaction.value)
+const openDeleteModalFromEdit = () => {
+  if (editForm.value) {
+    const tx = loadedTransactionsWithCategory.value.find(t => t.id === editForm.value!.id)
+    if (tx) {
+      showEditModal.value = false
+      openDeleteModal(tx)
+    }
   }
-  showMobileActionsModal.value = false
-}
-
-const handleMobileDelete = () => {
-  if (activeMobileTransaction.value) {
-    openDeleteModal(activeMobileTransaction.value)
-  }
-  showMobileActionsModal.value = false
 }
 
 const closeDeleteModal = () => {
@@ -807,35 +762,6 @@ const formatCurrency = (val: number) => {
 .load-more-button {
   align-self: center;
   margin: 18px auto 4px;
-}
-
-.mobile-actions-container {
-  display: flex;
-  flex-direction: column;
-  padding: 8px;
-  gap: 8px;
-  min-width: 250px;
-}
-
-.mobile-actions-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid var(--glass-border);
-  padding-bottom: 12px;
-  margin-bottom: 4px;
-
-  h4 {
-    margin: 0;
-    font-size: 1.1rem;
-    color: var(--text-primary);
-  }
-}
-
-.mobile-action-btn {
-  justify-content: flex-start;
-  padding: 12px 16px;
-  font-size: 1rem;
 }
 
 .empty-state {
