@@ -293,11 +293,13 @@ const onPeriodChange = async (payload: {
       startDate: curStart.toISOString().split('T')[0],
       endDate: curEnd.toISOString().split('T')[0],
       limit: 10000,
+      offset: 0,
     }),
     api.getTransactionsPage({
       startDate: prevStart.toISOString().split('T')[0],
       endDate: prevEnd.toISOString().split('T')[0],
       limit: 10000,
+      offset: 0,
     }),
   ])
 
@@ -883,12 +885,15 @@ const lineOptions = {
 .text-success {
   color: #10b981;
 }
+
 .text-danger {
   color: #ef4444;
 }
+
 .text-primary {
   color: #3b82f6;
 }
+
 .text-secondary {
   color: #a5b0c0;
 }
@@ -919,6 +924,7 @@ const lineOptions = {
     width: 36px;
     height: 36px;
     border-radius: 8px;
+
     :deep(i) {
       font-size: 20px !important;
     }
