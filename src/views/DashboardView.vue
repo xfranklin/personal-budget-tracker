@@ -233,6 +233,7 @@ const budgetStore = useBudgetStore()
 const isLoading = ref(true)
 const currentPeriodData = ref<Transaction[]>([])
 const previousPeriodData = ref<Transaction[]>([])
+const currentPeriodTab = ref<string>('months')
 
 const activeGroupTab = ref<'income' | 'expense'>('expense')
 
@@ -251,6 +252,7 @@ const onPeriodChange = async (payload: {
   tab: string
 }) => {
   isLoading.value = true
+  currentPeriodTab.value = payload.tab
 
   const { startDate, endDate, tab } = payload
 
@@ -541,24 +543,33 @@ const lineChartData = computed(() => {
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
   )
 
-  // Group by day
-  const dailyNet: Record<string, number> = {}
+  // Group by day or month based on tab
+  const groupByMonth = currentPeriodTab.value === 'years' || currentPeriodTab.value === 'all'
+  const groupedNet: Record<string, number> = {}
+
   for (const t of sorted) {
     const net = t.type === 'income' ? t.amount : -t.amount
-    dailyNet[t.date] = (dailyNet[t.date] || 0) + net
+    const key = groupByMonth ? t.date.substring(0, 7) : t.date // "YYYY-MM" or "YYYY-MM-DD"
+    groupedNet[key] = (groupedNet[key] || 0) + net
   }
 
-  const dates = Object.keys(dailyNet)
+  const keys = Object.keys(groupedNet)
   let cumulative = 0
-  const data = dates.map(d => {
-    cumulative += dailyNet[d]
+  const data = keys.map(k => {
+    cumulative += groupedNet[k]
     return cumulative
   })
 
   // Format labels nicely
-  const labels = dates.map(d => {
-    const date = new Date(d)
-    return `${date.getDate()} ${date.toLocaleString('default', { month: 'short' })}`
+  const labels = keys.map(k => {
+    if (groupByMonth) {
+      const [y, m] = k.split('-')
+      const date = new Date(Number(y), Number(m) - 1, 1)
+      return `${date.toLocaleString('default', { month: 'short' })} ${y}`
+    } else {
+      const date = new Date(k)
+      return `${date.getDate()} ${date.toLocaleString('default', { month: 'short' })}`
+    }
   })
 
   return {

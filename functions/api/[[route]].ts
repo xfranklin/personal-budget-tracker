@@ -82,7 +82,7 @@ app.get('/transactions', async c => {
     const endDate = c.req.query('endDate')
 
     if (limitQuery || offsetQuery || startDate || endDate) {
-      const limit = Math.min(Math.max(Number(limitQuery) || 25, 1), 100)
+      const limit = Math.min(Math.max(Number(limitQuery) || 25, 1), 100000)
       const offset = Math.max(Number(offsetQuery) || 0, 0)
       const whereParts: string[] = []
       const bindings: Array<number | string> = []
