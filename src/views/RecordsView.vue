@@ -133,6 +133,7 @@
               <input
                 v-model.number="editForm.amount"
                 type="number"
+                inputmode="decimal"
                 step="any"
                 min="0"
                 placeholder="0.00"
