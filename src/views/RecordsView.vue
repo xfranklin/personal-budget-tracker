@@ -131,14 +131,14 @@
             <div class="amount-input-wrapper">
               <va-icon name="attach_money" color="textSecondary" class="amount-icon" />
               <input
-                v-model.number="editForm.amount"
-                type="number"
+                v-model="editForm.amountInput"
+                type="text"
                 inputmode="decimal"
-                step="any"
-                min="0"
+                pattern="[0-9]*[.,]?[0-9]*"
                 placeholder="0.00"
                 class="amount-native-input"
                 required
+                @input="onEditAmountInput"
               />
             </div>
           </div>
@@ -184,7 +184,11 @@
             class="w-full submit-button"
             icon="save"
             :loading="isSubmitting"
-            :disabled="!editForm.amount || editForm.amount <= 0 || !editForm.categoryId"
+            :disabled="
+              !parseAmountInput(editForm.amountInput) ||
+              parseAmountInput(editForm.amountInput)! <= 0 ||
+              !editForm.categoryId
+            "
           >
             Save Changes
           </va-button>
@@ -413,6 +417,7 @@ const transactionToDelete = ref<(Transaction & { category?: Category }) | null>(
 const editForm = ref<{
   id: string
   amount: number | null
+  amountInput: string
   type: TransactionType
   categoryId: string
   date: string
@@ -424,6 +429,33 @@ const filteredEditCategories = computed(() => {
   if (!editForm.value) return []
   return budgetStore.categories.filter(c => c.type === editForm.value!.type)
 })
+
+const normalizeAmountInput = (value: string) => {
+  let normalized = value.replace(/[^\d.,]/g, '')
+  const separatorIndex = normalized.search(/[.,]/)
+
+  if (separatorIndex !== -1) {
+    const head = normalized.slice(0, separatorIndex + 1)
+    const tail = normalized.slice(separatorIndex + 1).replace(/[.,]/g, '')
+    normalized = head + tail
+  }
+
+  return normalized
+}
+
+const parseAmountInput = (value: string) => {
+  const parsed = Number(value.replace(',', '.'))
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+const onEditAmountInput = (event: Event) => {
+  if (!editForm.value) return
+
+  const input = event.target as HTMLInputElement
+  const normalized = normalizeAmountInput(input.value)
+  editForm.value.amountInput = normalized
+  input.value = normalized
+}
 
 // On Type change inside edit form
 const onEditTypeChange = () => {
@@ -437,6 +469,7 @@ const openEditModal = (item: Transaction) => {
   editForm.value = {
     id: item.id,
     amount: item.amount,
+    amountInput: String(item.amount),
     type: item.type,
     categoryId: item.categoryId,
     date: item.date,
@@ -553,17 +586,13 @@ onUnmounted(() => {
 
 // Form edit submission
 const handleEditSubmit = async () => {
-  if (
-    !editForm.value ||
-    !editForm.value.amount ||
-    editForm.value.amount <= 0 ||
-    !editForm.value.categoryId
-  )
-    return
+  const parsedAmount = editForm.value ? parseAmountInput(editForm.value.amountInput) : null
+
+  if (!editForm.value || !parsedAmount || parsedAmount <= 0 || !editForm.value.categoryId) return
 
   isSubmitting.value = true
   const payload = {
-    amount: editForm.value.amount,
+    amount: parsedAmount,
     type: editForm.value.type,
     categoryId: editForm.value.categoryId,
     date: editForm.value.date,

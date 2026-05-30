@@ -177,14 +177,14 @@
           <div class="amount-input-wrapper">
             <va-icon name="attach_money" color="textSecondary" class="amount-icon" />
             <input
-              v-model.number="amount"
-              type="number"
+              v-model="amountInput"
+              type="text"
               inputmode="decimal"
-              step="any"
-              min="0"
+              pattern="[0-9]*[.,]?[0-9]*"
               placeholder="0.00"
               class="amount-native-input"
               required
+              @input="onAmountInput"
             />
           </div>
         </div>
@@ -314,11 +314,37 @@ const navItems = computed(() => [
 ])
 
 // ================= GLOBAL ADD ENTRY FORM LOGIC =================
-const amount = ref<number | null>(null)
+const amountInput = ref('')
+const amount = computed(() => parseAmountInput(amountInput.value))
 const type = ref<TransactionType>('expense')
 const categoryId = ref<string>('')
 const date = ref<string>(new Date().toISOString().split('T')[0])
 const description = ref<string>('')
+
+const normalizeAmountInput = (value: string) => {
+  let normalized = value.replace(/[^\d.,]/g, '')
+  const separatorIndex = normalized.search(/[.,]/)
+
+  if (separatorIndex !== -1) {
+    const head = normalized.slice(0, separatorIndex + 1)
+    const tail = normalized.slice(separatorIndex + 1).replace(/[.,]/g, '')
+    normalized = head + tail
+  }
+
+  return normalized
+}
+
+const parseAmountInput = (value: string) => {
+  const parsed = Number(value.replace(',', '.'))
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+const onAmountInput = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const normalized = normalizeAmountInput(input.value)
+  amountInput.value = normalized
+  input.value = normalized
+}
 
 // Filter categories
 const filteredCategories = computed(() => {
@@ -390,7 +416,7 @@ const handleSubmit = async () => {
     console.error('Failed to persist transaction:', err)
   } finally {
     isSubmitting.value = false
-    amount.value = null
+    amountInput.value = ''
     description.value = ''
     budgetStore.showAddTransactionModal = false
   }
